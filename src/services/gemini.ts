@@ -1,4 +1,5 @@
 import type { PediatricSummary } from "@/components/SummaryDisplay";
+import { extractTextFromPDF } from "@/utils/pdfExtractor";
 
 // Get API key from environment variable
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -146,13 +147,143 @@ export interface GeminiSummaryResponse {
   }>;
 }
 
+/**
+ * Extracts text from an image or PDF file
+ * For PDFs: uses pdfjs-dist for reliable text extraction
+ * For images: uses Gemini's vision API
+ */
+async function extractTextFromFile(file: File): Promise<string> {
+  const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+  // For PDFs, use pdfjs-dist for more reliable extraction
+  if (isPDF) {
+    try {
+      return await extractTextFromPDF(file);
+    } catch (error) {
+      console.warn('PDF extraction with pdfjs failed, trying Gemini:', error);
+      // Fall through to Gemini vision as fallback
+    }
+  }
+
+  // For images (or PDF fallback), use Gemini vision
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      try {
+        const arrayBuffer = e.target?.result as ArrayBuffer;
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ""
+          )
+        );
+
+        // Determine MIME type
+        let mimeType = file.type;
+        if (!mimeType) {
+          if (file.name.toLowerCase().endsWith('.png')) {
+            mimeType = 'image/png';
+          } else if (file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg')) {
+            mimeType = 'image/jpeg';
+          } else if (file.name.toLowerCase().endsWith('.webp')) {
+            mimeType = 'image/webp';
+          } else {
+            mimeType = 'image/png'; // default
+          }
+        }
+
+        const extractPrompt = `Extract all text from this document/image. Return ONLY the extracted text exactly as it appears, preserving line breaks and formatting. Do not summarize, interpret, or modify the text. If the document is a discharge summary or medical document, extract all medical information exactly as written.`;
+
+        const response = await fetch(
+          `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: extractPrompt,
+                    },
+                    {
+                      inline_data: {
+                        mime_type: mimeType,
+                        data: base64,
+                      },
+                    },
+                  ],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.1,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 8192,
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`Gemini API error: ${response.status} - ${errorData}`);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(`Gemini API error: ${data.error.message || JSON.stringify(data.error)}`);
+        }
+
+        if (!data.candidates || data.candidates.length === 0) {
+          throw new Error(`No candidates in response`);
+        }
+
+        const candidate = data.candidates[0];
+        if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+          throw new Error(`No content in response`);
+        }
+
+        const extractedText = candidate.content.parts[0].text || "";
+        resolve(extractedText.trim());
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 export async function processDischargeSummary(
-  dischargeText: string
-): Promise<PediatricSummary> {
+  dischargeText: string,
+  file?: File
+): Promise<PediatricSummary & { extractedTranscript?: string }> {
+  let finalText = dischargeText;
+  let extractedTranscript: string | undefined;
+
+  // If a file is provided, extract text from it first
+  if (file) {
+    try {
+      extractedTranscript = await extractTextFromFile(file);
+      finalText = extractedTranscript;
+    } catch (error) {
+      console.error("Error extracting text from file:", error);
+      throw new Error(
+        `Failed to extract text from file: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
   const prompt = `${SYSTEM_PROMPT}
 
 Input discharge summary:
-${dischargeText}
+${finalText}
 
 Output the JSON object now:`;
 
@@ -316,7 +447,7 @@ Output the JSON object now:`;
     }
 
     // Validate and transform to PediatricSummary format
-    const summary: PediatricSummary = {
+    const summary: PediatricSummary & { extractedTranscript?: string } = {
       simpleExplanation: parsed.simpleExplanation || "The discharge summary was processed, but no explanation could be extracted.",
       whatToDo: Array.isArray(parsed.whatToDo) ? parsed.whatToDo : [],
       whatNotToDo: Array.isArray(parsed.whatNotToDo) ? parsed.whatNotToDo : [],
@@ -324,6 +455,7 @@ Output the JSON object now:`;
       medications: Array.isArray(parsed.medications) ? parsed.medications : [],
       followUp: Array.isArray(parsed.followUp) ? parsed.followUp : [],
       expectedCourse: parsed.expectedCourse || "The discharge summary does not specify what to expect over the next few days.",
+      extractedTranscript: extractedTranscript,
     };
 
     // Attach quiz questions if present, with basic validation and defaults

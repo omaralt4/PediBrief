@@ -1,67 +1,95 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Shield, Sparkles, AlertCircle, FileText } from "lucide-react";
+import { Shield, Sparkles, AlertCircle, FileText, Upload, X } from "lucide-react";
 
 interface SummaryInputProps {
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, file?: File) => void;
   isLoading: boolean;
 }
 
 // Sample discharge note - replace this with your actual sample note
-const SAMPLE_DISCHARGE_NOTE = `Age: 5 years
-Sex: Female
-Diagnosis: Acute viral gastroenteritis with dehydration
+const SAMPLE_DISCHARGE_NOTE = `Summary
 
-Hospital Course
+This 5-year-old girl was admitted for evaluation of vomiting and frequent loose stools that began the day prior to presentation. Her mother reported reduced oral intake and fewer wet diapers. On arrival she appeared mildly dehydrated but alert, with normal temperature and no abdominal tenderness. There was no history of recent antibiotic use, travel, or sick contacts with bloody diarrhea.
 
-Child admitted for vomiting, loose stools, and reduced oral intake over 24 hours. Initial evaluation showed mild dehydration. She received IV fluids and was monitored for urine output and ongoing losses. No blood in stool and no abdominal findings to suggest surgical pathology. Electrolytes remained stable. Hydration and activity improved steadily, and she tolerated oral fluids well by the following day.
+She was started on IV fluids for rehydration and monitored for urine output and clinical improvement. No laboratory abnormalities requiring intervention were noted. Her vomiting resolved within several hours, and she began tolerating small amounts of oral fluids by the next morning. No signs developed to suggest bacterial gastroenteritis or a surgical cause for symptoms. By the time of discharge she was active, drinking adequately, and maintaining hydration without IV support.
 
-Medications on Discharge
+Discharge Plan
 
-Paracetamol: 15 mg/kg every 6 hours as needed for fever or discomfort.
+She may continue oral rehydration solution at home as needed, especially if stool output increases again. Paracetamol can be given for discomfort or fever at a dose of 15 mg/kg every 6 hours as needed.
 
-Oral rehydration solution: Small, frequent amounts as needed to maintain hydration.
+Families should avoid offering fruit juices, sodas, or sweetened drinks for the next couple of days, as these may worsen diarrhea. Heavy or greasy meals should also be avoided early on; smaller, more frequent portions are better tolerated. Anti-diarrheal medications should not be used unless specifically directed by a clinician.
 
-Home Care - What to Avoid
+Expected Course
 
-Avoid fruit juices, sodas, and sports drinks — they can worsen diarrhea.
-
-Avoid heavy, greasy, or sugary foods for a day or two.
-
-Avoid anti-diarrheal medications unless specifically prescribed (not recommended for young children).
-
-Avoid large meals; stick to small, frequent feeds at first.
-
-Short-Term Course (Expected Changes)
-
-Loose stools may continue for 2–3 days but should gradually decrease in frequency.
-
-Appetite may be reduced initially but should return progressively.
-
-Mild abdominal discomfort or intermittent cramping can occur as the gut recovers.
-
-Energy level should improve steadily; some tiredness is normal.
-
-Watch for any signs of dehydration returning (fewer wet diapers/urination, dry mouth, lethargy).
-
-Seek medical care if vomiting restarts persistently, stool becomes bloody, she drinks poorly, or you notice worsening lethargy.
+Some loose stools may continue for the next 2-3 days, which is typical as the gastrointestinal tract recovers. Her appetite may return gradually, and she may have periods of mild cramping or lower energy, but overall hydration and activity should steadily improve. Caregivers should seek medical reassessment if vomiting returns and prevents oral intake, stools become bloody, urine output decreases, or if she appears unusually sleepy or weak.
 
 Follow-Up
 
-Primary care visit in 2-3 days or sooner if symptoms worsen.`;
+Follow up with her primary care provider in 2-3 days, or sooner if symptoms worsen or new concerns arise.`;
 
 export function SummaryInput({ onSubmit, isLoading }: SummaryInputProps) {
   const [inputText, setInputText] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [inputMode, setInputMode] = useState<"text" | "file">("text");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
-    if (inputText.trim().length < 50) return;
-    onSubmit(inputText);
+    if (inputMode === "file" && selectedFile) {
+      onSubmit("", selectedFile);
+    } else if (inputMode === "text" && inputText.trim().length >= 50) {
+      onSubmit(inputText);
+    }
   };
 
   const handleUseSample = () => {
     setInputText(SAMPLE_DISCHARGE_NOTE);
+    setInputMode("text");
+    setSelectedFile(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/webp",
+      ];
+      const validExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
+
+      if (
+        !validTypes.includes(file.type) &&
+        !validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
+      ) {
+        alert("Please select a PDF or image file (PNG, JPG, JPEG, or WEBP)");
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert("File size must be less than 10MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setInputMode("file");
+      setInputText(""); // Clear text input when file is selected
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setInputMode("text");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -83,7 +111,36 @@ export function SummaryInput({ onSubmit, isLoading }: SummaryInputProps) {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-end gap-3">
+              {/* Mode Toggle */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={inputMode === "text" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setInputMode("text");
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Paste Text
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={inputMode === "file" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload PDF/Image
+                  </Button>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -95,15 +152,52 @@ export function SummaryInput({ onSubmit, isLoading }: SummaryInputProps) {
                   Try with a sample note
                 </Button>
               </div>
-              <Textarea
-                id="discharge-textarea"
-                placeholder="Paste the discharge summary text here...
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              {/* File display */}
+              {inputMode === "file" && selectedFile && (
+                <div className="p-4 rounded-xl bg-secondary border border-border flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-medium text-foreground">{selectedFile.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(selectedFile.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveFile}
+                    className="flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Text input */}
+              {inputMode === "text" && (
+                <Textarea
+                  id="discharge-textarea"
+                  placeholder="Paste the discharge summary text here...
 
 Example: Patient is a 4-year-old male who presented with acute otitis media. Treatment includes amoxicillin 250mg three times daily for 10 days. Return if fever persists beyond 48 hours, ear drainage develops, or symptoms worsen..."
-                className="min-h-[250px] text-base leading-relaxed resize-none border-2 focus:border-primary/50 transition-colors"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-              />
+                  className="min-h-[250px] text-base leading-relaxed resize-none border-2 focus:border-primary/50 transition-colors"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                />
+              )}
 
               {/* Privacy notice */}
               <div className="flex items-start gap-3 p-4 rounded-xl bg-teal-light/50 border border-primary/10">
@@ -119,7 +213,7 @@ Example: Patient is a 4-year-old male who presented with acute otitis media. Tre
               </div>
 
               {/* Validation message */}
-              {inputText.length > 0 && inputText.length < 50 && (
+              {inputMode === "text" && inputText.length > 0 && inputText.length < 50 && (
                 <div className="flex items-center gap-2 text-warning">
                   <AlertCircle className="w-4 h-4" />
                   <span className="text-sm">Please paste a complete discharge summary (at least 50 characters)</span>
@@ -131,7 +225,11 @@ Example: Patient is a 4-year-old male who presented with acute otitis media. Tre
                 size="xl" 
                 className="w-full"
                 onClick={handleSubmit}
-                disabled={inputText.trim().length < 50 || isLoading}
+                disabled={
+                  (inputMode === "text" && inputText.trim().length < 50) ||
+                  (inputMode === "file" && !selectedFile) ||
+                  isLoading
+                }
               >
                 {isLoading ? (
                   <>

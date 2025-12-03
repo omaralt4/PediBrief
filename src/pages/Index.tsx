@@ -35,10 +35,10 @@ const Index = () => {
     }, 100);
   };
 
-  const handleSubmitSummary = async (text: string) => {
+  const handleSubmitSummary = async (text: string, file?: File) => {
     setIsProcessing(true);
     try {
-      const result = await processDischargeSummary(text);
+      const result = await processDischargeSummary(text, file);
       setSummary(result);
       setAppState("summary");
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -48,7 +48,7 @@ const Index = () => {
         title: "Error processing summary",
         description: error instanceof Error 
           ? error.message 
-          : "Please try again. If the problem persists, check that you've pasted a complete discharge summary.",
+          : "Please try again. If the problem persists, check that you've pasted a complete discharge summary or uploaded a valid file.",
         variant: "destructive",
       });
     } finally {

@@ -8,8 +8,11 @@ import {
   Clock, 
   ChevronRight,
   CheckCircle,
-  XCircle
+  XCircle,
+  Eye,
+  EyeOff
 } from "lucide-react";
+import { useState } from "react";
 
 export interface PediatricSummary {
   simpleExplanation: string;
@@ -38,6 +41,8 @@ export interface PediatricSummary {
     // Optional weight (importance); if missing, will be derived from category
     weight?: number;
   }>;
+  // Extracted transcript from PDF/image upload (for user verification)
+  extractedTranscript?: string;
 }
 
 interface SummaryDisplayProps {
@@ -46,6 +51,8 @@ interface SummaryDisplayProps {
 }
 
 export function SummaryDisplay({ summary, onStartQuiz }: SummaryDisplayProps) {
+  const [showTranscript, setShowTranscript] = useState(false);
+
   return (
     <section className="py-12 bg-background">
       <div className="container px-4">
@@ -60,6 +67,51 @@ export function SummaryDisplay({ summary, onStartQuiz }: SummaryDisplayProps) {
               Your Child's Care Instructions
             </h2>
           </div>
+
+          {/* Extracted Transcript Display */}
+          {summary.extractedTranscript && (
+            <Card variant="outline" className="border-2 border-warning/30">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warning">
+                    <FileText className="w-5 h-5" />
+                    Extracted Text from Document
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTranscript(!showTranscript)}
+                    className="flex items-center gap-2"
+                  >
+                    {showTranscript ? (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        Hide
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        Show
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Please review the extracted text below to verify it was read correctly from your document. 
+                  If anything looks incorrect, please use the text input option instead.
+                </p>
+              </CardHeader>
+              {showTranscript && (
+                <CardContent>
+                  <div className="p-4 rounded-lg bg-secondary border border-border max-h-[400px] overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm text-foreground font-mono">
+                      {summary.extractedTranscript}
+                    </pre>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
 
           {/* Simple Explanation */}
           <Card variant="gradient" className="border-2 border-primary/20">
