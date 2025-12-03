@@ -112,41 +112,30 @@ export function SummaryInput({ onSubmit, isLoading }: SummaryInputProps) {
 
             <CardContent className="space-y-6">
               {/* Mode Toggle */}
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant={inputMode === "text" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setInputMode("text");
-                      setSelectedFile(null);
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = "";
-                      }
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Paste Text
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={inputMode === "file" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload PDF/Image
-                  </Button>
-                </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant={inputMode === "file" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (inputMode === "file") {
+                      fileInputRef.current?.click();
+                    } else {
+                      setInputMode("file");
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload PDF/Image
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleUseSample}
-                  className="flex items-center gap-2"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <FileText className="w-4 h-4" />
                   Try with a sample note
