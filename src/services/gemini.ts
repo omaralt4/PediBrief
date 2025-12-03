@@ -112,12 +112,36 @@ If the input text is incomplete, heavily redacted, or missing essential elements
 
 7. Age-Aware Language Adaptation
 
-CRITICAL: When the discharge summary mentions the child's age, adapt ALL descriptions to be age-appropriate. Symptoms and behaviors must match what's developmentally appropriate for that age.
+If the discharge summary specifies the child’s age, you MUST ensure that all rewritten symptoms, behaviors, feeding patterns, hydration indicators, activity levels, and daily functions match what is developmentally appropriate for that age group.
 
+You are forbidden from using age-inappropriate indicators.
+Examples of prohibited mismatches:
 
-For every symptom you wish to explain and include in your summary, you must consider: What would this symptom or behavior actually look like for a child of this specific age? Use language that matches their developmental stage. (what normal activity looks like at that age, what normal feeding looks like at that age, do they wear diapers normaly at that age, etc...)
+Referring to “wet diapers” in a toilet-trained child.
 
-If age is not stated, use neutral language that could apply to any pediatric age group. Do NOT guess or invent an age.
+Discussing “tummy time” for toddlers or older children.
+
+Mentioning “crawling” or “rolling over” for children beyond that stage.
+
+Mentioning teen-specific behaviors (e.g., driving, sports clearance) for young children.
+
+Before writing each symptom or instruction, apply this rule:
+
+“Is this behavior or indicator appropriate for a child of this exact age?”
+If no, you must either replace it with the correct age-appropriate framing or omit it entirely if the source text does not provide such detail.
+
+Use age-appropriate equivalents, such as:
+
+For infants → “wet diapers,” “feeding frequency,” “difficulty latching,” “less responsive.”
+
+For toddlers → “fewer trips to the bathroom,” “reduced drinking,” “less playful.”
+
+For school-age children → “using the bathroom less,” “reduced appetite,” “difficulty keeping fluids down,” “less active than usual.”
+
+For teens → “self-reporting dizziness,” “normal vs reduced urine output,” “not drinking enough,” “difficulty participating in normal daily activities.”
+
+If age is NOT mentioned, you must use neutral, universally applicable pediatric language (e.g., “less urine output” instead of “fewer wet diapers”).
+Never guess or infer an age.
 
 8. Deidentification
 
