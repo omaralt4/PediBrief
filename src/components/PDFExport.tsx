@@ -1,14 +1,19 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Download, RefreshCw, CheckCircle, Trophy } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Download, RefreshCw, CheckCircle, Trophy, Mail, AlertCircle } from "lucide-react";
 import { jsPDF } from "jspdf";
 import type { PediatricSummary } from "./SummaryDisplay";
+import { sendQuizResultsToDoctor } from "@/services/email";
+import { useToast } from "@/hooks/use-toast";
 
 interface QuizAnswer {
   questionId: string;
-  answer: string;
-  isCorrect: boolean;
-  feedback: string;
+  selectedOptionIndexes: number[];
+  scoreFraction: number;
 }
 
 interface PDFExportProps {
@@ -19,6 +24,59 @@ interface PDFExportProps {
 }
 
 export function PDFExport({ summary, quizScore, quizAnswers, onStartOver }: PDFExportProps) {
+  const [doctorEmail, setDoctorEmail] = useState("");
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleSendEmail = async () => {
+    if (!doctorEmail || !doctorEmail.includes("@")) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid doctor email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!consentGiven) {
+      toast({
+        title: "Consent required",
+        description: "Please confirm that you consent to share quiz results with your doctor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    const result = await sendQuizResultsToDoctor(
+      doctorEmail,
+      quizScore,
+      quizAnswers,
+      summary
+    );
+
+    setIsSendingEmail(false);
+
+    if (result.success) {
+      setEmailSent(true);
+      setPatientId(result.patientId || null);
+      toast({
+        title: "Email sent successfully",
+        description: `Quiz results sent to ${doctorEmail}. Patient ID: ${result.patientId}`,
+      });
+    } else {
+      toast({
+        title: "Failed to send email",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const generatePDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -200,6 +258,91 @@ export function PDFExport({ summary, quizScore, quizAnswers, onStartOver }: PDFE
                   <RefreshCw className="w-5 h-5 mr-2" />
                   Process Another Summary
                 </Button>
+              </div>
+
+              {/* Email to Doctor Section */}
+              <div className="mt-8 pt-8 border-t border-border">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Share Results with Your Doctor
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Optionally send your quiz results to your child's doctor for monitoring. 
+                  A deidentified patient ID will be included so your doctor can track progress.
+                </p>
+
+                {!emailSent ? (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="doctor-email" className="text-sm font-medium">
+                        Doctor's Email Address
+                      </Label>
+                      <Input
+                        id="doctor-email"
+                        type="email"
+                        placeholder="doctor@example.com"
+                        value={doctorEmail}
+                        onChange={(e) => setDoctorEmail(e.target.value)}
+                        className="mt-2"
+                        disabled={isSendingEmail}
+                      />
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="consent"
+                        checked={consentGiven}
+                        onCheckedChange={(checked) => setConsentGiven(checked === true)}
+                        disabled={isSendingEmail}
+                      />
+                      <Label
+                        htmlFor="consent"
+                        className="text-sm text-muted-foreground cursor-pointer"
+                      >
+                        I consent to share my child's quiz results with the doctor at the email address above. 
+                        I understand that a deidentified patient ID will be included, but no protected health information will be shared.
+                      </Label>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={handleSendEmail}
+                      disabled={!doctorEmail || !consentGiven || isSendingEmail}
+                      className="w-full sm:w-auto"
+                    >
+                      {isSendingEmail ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Send to Doctor
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="font-medium text-success mb-1">
+                          Email sent successfully!
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Quiz results have been sent to <strong>{doctorEmail}</strong>
+                        </p>
+                        {patientId && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <strong>Patient ID:</strong> {patientId}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Privacy reminder */}
