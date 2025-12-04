@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "api/send-doctor-email.ts": {
-      "runtime": "@vercel/node"
-    }
-  }
-}
-
